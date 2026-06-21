@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LingoBlock専用 - CSVジェネレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-[#f8fafc] text-[#1e293b] font-sans h-screen w-screen flex justify-center items-center p-4">
+
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-2xl h-[90vh] flex flex-col overflow-hidden">
+        
+        <header class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div>
+                <h1 class="text-lg font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    LingoBlock CSV Generator
+                </h1>
+                <p class="text-xs text-slate-400 mt-0.5">アプリに読み込ませるカスタムCSVを直感的に作成</p>
+            </div>
+            <button id="btn-download" class="bg-[#3ecf8e] hover:opacity-90 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-md shadow-emerald-100 transition-all flex items-center gap-2">
+                📦 CSVをダウンロード
+            </button>
+        </header>
+
+        <div class="p-6 border-b border-slate-100 bg-white space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">グループ名（ジャンル名）<span class="text-rose-500">*</span></label>
+                <input type="text" id="group-name" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-500 font-bold" placeholder="例: 動詞(過去形)、重要名詞など" value="カスタムジャンル">
+            </div>
+
+            <div class="grid grid-cols-12 gap-3 items-end">
+                <div class="col-span-6">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">単語 (表示されるテキスト)<span class="text-rose-500">*</span></label>
+                    <input type="text" id="word-text" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-500" placeholder="例: apple, played">
+                </div>
+                <div class="col-span-4">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">品詞 (色分けの基準)<span class="text-rose-500">*</span></label>
+                    <select id="word-pos" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-500 font-semibold">
+                        <option value="名詞">名詞 (青)</option>
+                        <option value="代名詞">代名詞 (水色)</option>
+                        <option value="形容詞">形容詞 (緑)</option>
+                        <option value="副詞">副詞 (深緑)</option>
+                        <option value="前置詞">前置詞 (オレンジ)</option>
+                        <option value="助動詞">助動詞 (赤)</option>
+                        <option value="冠詞">冠詞 (黄色)</option>
+                        <option value="疑問詞">疑問詞 (紫)</option>
+                        <option value="終末ブロック">終末ブロック (グレー)</option>
+                        <option value="その他">その他</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <button id="btn-add-item" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-2 rounded-lg transition-all">
+                        追加
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto no-scrollbar p-6 bg-slate-50/50">
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">現在の登録リスト</span>
+                <span id="list-count" class="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">0 件</span>
+            </div>
+            
+            <div id="list-container" class="space-y-2">
+                <div id="empty-message" class="text-center py-12 text-sm text-slate-400">
+                    単語が登録されていません。上のフォームから追加してください。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 品詞とバッジの色のマッピング（LingoBlockと完全統一）
+        const POS_BADGES = {
+            "名詞": "bg-blue-500 text-white",
+            "代名詞": "bg-sky-400 text-white",
+            "形容詞": "bg-emerald-500 text-white",
+            "副詞": "bg-teal-600 text-white",
+            "前置詞": "bg-orange-400 text-white",
+            "助動詞": "bg-rose-500 text-white",
+            "冠詞": "bg-amber-400 text-amber-950",
+            "疑問詞": "bg-violet-500 text-white",
+            "終末ブロック": "bg-slate-400 text-white",
+            "その他": "bg-slate-200 text-slate-800"
+        };
+
+        // 作成中の単語データを保持する配列
+        let records = [];
+
+        const groupInput = document.getElementById('group-name');
+        const wordInput = document.getElementById('word-text');
+        const posInput = document.getElementById('word-pos');
+        const btnAddItem = document.getElementById('btn-add-item');
+        const listContainer = document.getElementById('list-container');
+        const listCount = document.getElementById('list-count');
+        const emptyMessage = document.getElementById('empty-message');
+        const btnDownload = document.getElementById('btn-download');
+
+        // リストを再描画する関数
+        function renderList() {
+            // 中身をクリア
+            listContainer.innerHTML = '';
+
+            if (records.length === 0) {
+                listContainer.appendChild(emptyMessage);
+                listCount.textContent = '0 件';
+                return;
+            }
+
+            listCount.textContent = `${records.length} 件`;
+
+            records.forEach((record, index) => {
+                const itemRow = document.createElement('div');
+                itemRow.className = "flex justify-between items-center bg-white border border-slate-100 p-3 rounded-xl shadow-sm transition-all hover:border-slate-200 animate-fadeIn";
+                
+                // 左側の情報（単語情報）
+                const infoDiv = document.createElement('div');
+                infoDiv.className = "flex items-center gap-3";
+                
+                const numSpan = document.createElement('span');
+                numSpan.className = "text-xs font-bold text-slate-300 w-5";
+                numSpan.textContent = index + 1;
+
+                const textSpan = document.createElement('span');
+                textSpan.className = "text-sm font-bold text-slate-800";
+                textSpan.textContent = record.text;
+
+                const badgeSpan = document.createElement('span');
+                badgeSpan.className = `text-[10px] font-extrabold px-2 py-0.5 rounded-md ${POS_BADGES[record.pos] || POS_BADGES['その他']}`;
+                badgeSpan.textContent = record.pos;
+
+                infoDiv.appendChild(numSpan);
+                infoDiv.appendChild(textSpan);
+                infoDiv.appendChild(badgeSpan);
+
+                // 右側の削除ボタン
+                const btnDelete = document.createElement('button');
+                btnDelete.className = "text-xs font-bold text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-md transition-all";
+                btnDelete.textContent = "削除";
+                btnDelete.onclick = () => {
+                    records.splice(index, 1);
+                    renderList();
+                };
+
+                itemRow.appendChild(infoDiv);
+                itemRow.appendChild(btnDelete);
+                listContainer.appendChild(itemRow);
+            });
+        }
+
+        // リスト追加イベント
+        btnAddItem.onclick = () => {
+            const text = wordInput.value.trim();
+            const pos = posInput.value;
+
+            if (!text) {
+                alert("単語を入力してください。");
+                wordInput.focus();
+                return;
+            }
+
+            // 配列に記録して入力欄をクリア
+            records.push({ text, pos });
+            wordInput.value = '';
+            wordInput.focus();
+
+            renderList();
+        };
+
+        // エンターキーでも追加できるようにする
+        wordInput.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                btnAddItem.click();
+            }
+        };
+
+        // CSVダウンロード処理
+        btnDownload.onclick = () => {
+            const groupName = groupInput.value.trim();
+
+            if (!groupName) {
+                alert("グループ名（ジャンル名）を入力してください。");
+                groupInput.focus();
+                return;
+            }
+
+            if (records.length === 0) {
+                alert("CSVに出力する単語がリストに1件も登録されていません。");
+                return;
+            }
+
+            // 要件通りのフォーマットでCSV文字列を生成
+            // 1行目: グループ名,空白
+            // 2行目以降: 品詞,単語テキスト
+            let csvContent = `${groupName},\n`;
+            
+            records.forEach(r => {
+                // カンマが含まれていた場合の簡易エスケープ
+                const safeText = r.text.includes(',') ? `"${r.text}"` : r.text;
+                csvContent += `${r.pos},${safeText}\n`;
+            });
+
+            // BOM付きUTF-8（Excelで開いても文字化けしないおまけ付き）
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+            const blob = new Blob([bom, csvContent], { type: "text/csv;charset=utf-8;" });
+            
+            // ダウンロードリンクを生成して擬似クリック
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `csv_data.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+    </script>
+</body>
+</html>
