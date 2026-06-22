@@ -19,7 +19,7 @@
                 <h1 class="text-lg font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                     LingoBlock CSV Generator
                 </h1>
-                <p class="text-xs text-slate-400 mt-0.5">アプリに読み込ませるカスタムCSVを直感的に作成</p>
+                <p class="text-xs text-slate-400 mt-0.5">アプリに読み込させるカスタムCSVを直感的に作成</p>
             </div>
             <button id="btn-download" class="bg-[#3ecf8e] hover:opacity-90 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-md shadow-emerald-100 transition-all flex items-center gap-2">
                 📦 CSVをダウンロード
@@ -27,9 +27,15 @@
         </header>
 
         <div class="p-6 border-b border-slate-100 bg-white space-y-4">
-            <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1">グループ名（ジャンル名）<span class="text-rose-500">*</span></label>
-                <input type="text" id="group-name" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-500 font-bold" placeholder="例: 動詞(過去形)、重要名詞など" value="カスタムジャンル">
+            <div class="grid grid-cols-12 gap-3">
+                <div class="col-span-8">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">グループ名（ジャンル名）<span class="text-rose-500">*</span></label>
+                    <input type="text" id="group-name" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-500 font-bold" placeholder="例: 動詞(過去形)、重要名詞など" value="カスタムジャンル">
+                </div>
+                <div class="col-span-4">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">CSVファイル番号 (csv[数字].csv)<span class="text-rose-500">*</span></label>
+                    <input type="number" id="file-number" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-500 font-bold" placeholder="例: 1" value="1" min="0">
+                </div>
             </div>
 
             <div class="grid grid-cols-12 gap-3 items-end">
@@ -62,8 +68,13 @@
 
         <div class="flex-1 overflow-y-auto no-scrollbar p-6 bg-slate-50/50">
             <div class="flex justify-between items-center mb-3">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">現在の登録リスト</span>
-                <span id="list-count" class="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">0 件</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">現在の登録リスト</span>
+                    <span id="list-count" class="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">0 件</span>
+                </div>
+                <button id="btn-clear-all" class="text-xs font-bold text-rose-500 hover:text-rose-700 hover:underline transition-all hidden">
+                    🗑️ リストを一括クリア
+                </button>
             </div>
             
             <div id="list-container" class="space-y-2">
@@ -93,9 +104,11 @@
         let records = [];
 
         const groupInput = document.getElementById('group-name');
+        const fileNumInput = document.getElementById('file-number');
         const wordInput = document.getElementById('word-text');
         const posInput = document.getElementById('word-pos');
         const btnAddItem = document.getElementById('btn-add-item');
+        const btnClearAll = document.getElementById('btn-clear-all');
         const listContainer = document.getElementById('list-container');
         const listCount = document.getElementById('list-count');
         const emptyMessage = document.getElementById('empty-message');
@@ -109,10 +122,12 @@
             if (records.length === 0) {
                 listContainer.appendChild(emptyMessage);
                 listCount.textContent = '0 件';
+                btnClearAll.classList.add('hidden'); // 件数0のときはクリアボタンを隠す
                 return;
             }
 
             listCount.textContent = `${records.length} 件`;
+            btnClearAll.classList.remove('hidden'); // 1件以上あればクリアボタンを表示
 
             records.forEach((record, index) => {
                 const itemRow = document.createElement('div');
@@ -172,6 +187,14 @@
             renderList();
         };
 
+        // 一括クリアイベント
+        btnClearAll.onclick = () => {
+            if (confirm("登録されているすべての単語をリストから削除しますか？")) {
+                records = [];
+                renderList();
+            }
+        };
+
         // エンターキーでも追加できるようにする
         wordInput.onkeydown = (e) => {
             if (e.key === 'Enter') {
@@ -182,10 +205,17 @@
         // CSVダウンロード処理
         btnDownload.onclick = () => {
             const groupName = groupInput.value.trim();
+            const fileNum = fileNumInput.value.trim();
 
             if (!groupName) {
                 alert("グループ名（ジャンル名）を入力してください。");
                 groupInput.focus();
+                return;
+            }
+
+            if (!fileNum) {
+                alert("CSVファイル名に用いる数字を入力してください。");
+                fileNumInput.focus();
                 return;
             }
 
@@ -195,25 +225,25 @@
             }
 
             // 要件通りのフォーマットでCSV文字列を生成
-            // 1行目: グループ名,空白
-            // 2行目以降: 品詞,単語テキスト
             let csvContent = `${groupName},\n`;
             
             records.forEach(r => {
-                // カンマが含まれていた場合の簡易エスケープ
                 const safeText = r.text.includes(',') ? `"${r.text}"` : r.text;
                 csvContent += `${r.pos},${safeText}\n`;
             });
 
-            // BOM付きUTF-8（Excelで開いても文字化けしないおまけ付き）
+            // BOM付きUTF-8
             const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
             const blob = new Blob([bom, csvContent], { type: "text/csv;charset=utf-8;" });
             
+            // 指定された数字に基づいてファイル名を決定 (csv[数字].csv)
+            const filename = `csv${fileNum}.csv`;
+
             // ダウンロードリンクを生成して擬似クリック
             const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
             link.setAttribute("href", url);
-            link.setAttribute("download", `csv_data.csv`);
+            link.setAttribute("download", filename);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
