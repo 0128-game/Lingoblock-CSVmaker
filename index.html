@@ -46,15 +46,16 @@
                 <div class="col-span-4">
                     <label class="block text-xs font-bold text-slate-500 mb-1">品詞 (色分けの基準)<span class="text-rose-500">*</span></label>
                     <select id="word-pos" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-500 font-semibold">
-                        <option value="名詞">名詞 (青)</option>
-                        <option value="代名詞">代名詞 (水色)</option>
-                        <option value="形容詞">形容詞 (緑)</option>
-                        <option value="副詞">副詞 (深緑)</option>
-                        <option value="前置詞">前置詞 (オレンジ)</option>
-                        <option value="助動詞">助動詞 (赤)</option>
-                        <option value="冠詞">冠詞 (黄色)</option>
-                        <option value="疑問詞">疑問詞 (紫)</option>
-                        <option value="終末ブロック">終末ブロック (グレー)</option>
+                        <option value="動詞">動詞</option>
+                        <option value="名詞">名詞</option>
+                        <option value="代名詞">代名詞</option>
+                        <option value="形容詞">形容詞</option>
+                        <option value="副詞">副詞</option>
+                        <option value="前置詞">前置詞</option>
+                        <option value="助動詞">助動詞</option>
+                        <option value="冠詞">冠詞</option>
+                        <option value="疑問詞">疑問詞</option>
+                        <option value="終末ブロック">終末ブロック</option>
                         <option value="その他">その他</option>
                     </select>
                 </div>
@@ -88,6 +89,7 @@
     <script>
         // 品詞とバッジの色のマッピング（LingoBlockと完全統一）
         const POS_BADGES = {
+            "動詞": "bg-red-500 text-white"
             "名詞": "bg-blue-500 text-white",
             "代名詞": "bg-sky-400 text-white",
             "形容詞": "bg-emerald-500 text-white",
